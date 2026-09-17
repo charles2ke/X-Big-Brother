@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">X Big Brother</string>
+    <string name="title_activity_main">X Big Brother</string>
+    <string name="package_name">ke.charles.xbigbrother</string>
+    <string name="custom_url_scheme">ke.charles.xbigbrother</string>
+</resources>
