@@ -3,6 +3,7 @@ import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
+  build: { target: ['es2020', 'safari15', 'chrome89'] },
   plugins: [react(), {
     name: 'development-csp',
     apply: 'serve',

@@ -14,6 +14,14 @@
 
 **An ordinary third-party app cannot promise to track all traffic or revoke every permission on either platform.** This project does not bypass OS isolation, decrypt traffic, infer data sharing from byte counts, or silently populate real dashboards with sample data.
 
+### Dashboard preview
+
+Playwright captures of **fictional demo data**, not a real device:
+
+![Desktop traffic dashboard](docs/screenshots/desktop-traffic.png)
+
+[Mobile traffic](docs/screenshots/mobile-traffic.png) · [Desktop permissions](docs/screenshots/desktop-permissions.png) · [Mobile permissions](docs/screenshots/mobile-permissions.png)
+
 ### Coverage and accuracy
 
 - Android uses `NetworkStatsManager.querySummary` on a background worker, one query per network per UTC day. Bytes include both received and sent traffic.
@@ -38,7 +46,7 @@ The browser starts with an honest unavailable-data state. Select **Explore demo*
 
 ## Android
 
-Requires Android Studio, JDK 21, and the Android SDK matching `android/variables.gradle` (compile/target SDK 36). Minimum Android version is 7.0 / API 24; Android 10+ is recommended for both networks.
+Requires Android Studio, JDK 21, and the Android SDK matching `android/variables.gradle` (compile/target SDK 36). Minimum Android version is 7.0 / API 24 with Android System WebView 89+; Android 10+ is recommended for both networks.
 
 ```sh
 npm ci
