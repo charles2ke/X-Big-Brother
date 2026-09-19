@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+def releaseVersion = providers.gradleProperty("releaseVersion").orNull
+def releaseVersionParts = releaseVersion?.split('\\.')?.collect { it.toInteger() }
+def releaseVersionCode = releaseVersionParts
+    ? releaseVersionParts[0] * 1_000_000 + releaseVersionParts[1] * 1_000 + releaseVersionParts[2]
+    : 1
+
 android {
     namespace = "ke.charles.xbigbrother"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +13,8 @@ android {
         applicationId "ke.charles.xbigbrother"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode releaseVersionCode
+        versionName releaseVersion ?: "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

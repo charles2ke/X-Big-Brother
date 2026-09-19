@@ -105,6 +105,23 @@ GitHub Actions runs these checks, Android build/unit tests/lint, and an unsigned
 
 Before releasing, test on physical Android devices (usage granted/denied/revoked, Wi-Fi/mobile activity, multiple SIMs, shared UIDs, refresh after permission changes) and iOS (Settings navigation, background/foreground, safe-area layout). The app has not been certified for store distribution; store disclosures, branding/signing, and device validation remain release responsibilities.
 
+## Publish packages and release
+
+`.github/workflows/release.yml` packages a release after the same checks CI runs. Push a `vMAJOR.MINOR.PATCH` tag (or start the workflow manually with a version to build packages without publishing):
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow builds the dashboard, syncs Capacitor, runs `assembleRelease bundleRelease`, and publishes these files to a GitHub release for the tag:
+
+- `x-big-brother-web-<version>.tar.gz`: built web bundle.
+- `x-big-brother-<version>-unsigned.apk` and `x-big-brother-<version>-unsigned.aab`: Android release builds.
+- `SHA256SUMS.txt`: checksums of the packages above.
+
+Android packages are **unsigned**: sign them with your own keystore before distributing or uploading to Google Play, and never commit keystores or store credentials. iOS builds are not published because they need macOS, Xcode, and an Apple signing identity; build and upload those from a signed local or self-hosted macOS environment.
+
 ## Project layout
 
 - `src/`: dashboard, native bridge contracts, and pure data helpers.
@@ -112,6 +129,7 @@ Before releasing, test on physical Android devices (usage granted/denied/revoked
 - `ios/App/App/`: native iOS app and safe Settings bridge.
 - `tests/`: unit and Playwright browser tests.
 - `.github/workflows/ci.yml`: repeatable validation and screenshot artifacts.
+- `.github/workflows/release.yml`: tagged release packaging and publishing.
 
 ## Privacy and security
 
