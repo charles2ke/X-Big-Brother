@@ -1,6 +1,6 @@
 # X Big Brother
 
-**Your data. Your control.** A local-only Android and iOS app for understanding network usage and reviewing app permissions, built with React, TypeScript, and Capacitor.
+**Your data. Your control.** A local-only Android and iOS app for understanding network usage and reviewing app permissions, built with React, TypeScript, and Capacitor. The same dashboard also runs as a static web build, with browser limitations stated up front.
 
 ## What it can actually do
 
@@ -43,6 +43,20 @@ npm run dev
 ```
 
 The browser starts with an honest unavailable-data state. Select **Explore demo** to use fictional app data. Demo mode is never persisted; it cannot open another app’s settings. There are no accounts, remote fonts, external APIs, or analytics.
+
+## Web
+
+The same dashboard ships as a static web build. It is the Android/iOS app’s interface without device access: **a web page cannot read another app’s traffic or permissions**, so it shows the browser-preview state plus clearly labeled fictional demo data.
+
+```sh
+npm ci
+npm run build
+npm run preview
+```
+
+`dist/` is a self-contained static bundle with relative asset URLs, so it can be served from a domain root or any subpath by any static host. It needs no server-side runtime, database, or API.
+
+Pushes to `main` publish `dist/` to GitHub Pages via `.github/workflows/pages.yml`. Enable it once in **Settings → Pages → Build and deployment → GitHub Actions**; the workflow can also be started manually. The bundled Content Security Policy keeps the deployed page limited to same-origin assets, and no data leaves the browser.
 
 ## Android
 
@@ -129,6 +143,7 @@ Android packages are **unsigned**: sign them with your own keystore before distr
 - `ios/App/App/`: native iOS app and safe Settings bridge.
 - `tests/`: unit and Playwright browser tests.
 - `.github/workflows/ci.yml`: repeatable validation and screenshot artifacts.
+- `.github/workflows/pages.yml`: static web deployment to GitHub Pages.
 - `.github/workflows/release.yml`: tagged release packaging and publishing.
 
 ## Privacy and security
