@@ -61,10 +61,10 @@ jobs:
           else
             version="${REF_NAME#v}"
           fi
-          case "${version}" in
-            [0-9]*.[0-9]*.[0-9]*) ;;
-            *) echo "Unsupported version '${version}'; expected MAJOR.MINOR.PATCH" >&2; exit 1 ;;
-          esac
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Unsupported version '${version}'; expected MAJOR.MINOR.PATCH" >&2
+            exit 1
+          fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
       - run: npm ci
       - run: npm run build
