@@ -1,0 +1,136 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to package, without a leading v (for example 1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: release-playwright-report-and-screenshots
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+  package:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Resolve release version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_VERSION}" ]; then
+            version="${INPUT_VERSION}"
+          else
+            version="${REF_NAME#v}"
+          fi
+          case "${version}" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "Unsupported version '${version}'; expected MAJOR.MINOR.PATCH" >&2; exit 1 ;;
+          esac
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync android
+      - name: Build unsigned Android release artifacts
+        working-directory: android
+        run: JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew assembleRelease bundleRelease
+      - name: Collect release packages
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-packages
+          tar -czf "release-packages/x-big-brother-web-${VERSION}.tar.gz" -C dist .
+          find android/app/build/outputs/apk/release -name '*.apk' \
+            -exec cp {} "release-packages/x-big-brother-${VERSION}-unsigned.apk" \;
+          find android/app/build/outputs/bundle/release -name '*.aab' \
+            -exec cp {} "release-packages/x-big-brother-${VERSION}-unsigned.aab" \;
+          cd release-packages
+          for expected in "x-big-brother-web-${VERSION}.tar.gz" \
+            "x-big-brother-${VERSION}-unsigned.apk" \
+            "x-big-brother-${VERSION}-unsigned.aab"; do
+            [ -f "${expected}" ] || { echo "Missing release package ${expected}" >&2; exit 1; }
+          done
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-packages
+          path: release-packages/
+          retention-days: 14
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+  publish:
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-packages
+          path: release-packages
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.package.outputs.version }}
+        run: |
+          set -euo pipefail
+          notes=$(cat <<EOF
+          Unsigned build artifacts for X Big Brother ${VERSION}.
+
+          - \`x-big-brother-web-${VERSION}.tar.gz\`: built dashboard web bundle.
+          - \`x-big-brother-${VERSION}-unsigned.apk\`: Android release APK, unsigned.
+          - \`x-big-brother-${VERSION}-unsigned.aab\`: Android release bundle, unsigned.
+          - \`SHA256SUMS.txt\`: checksums for the files above.
+
+          Sign the Android artifacts with your own keystore before distribution. iOS builds
+          require macOS, Xcode and an Apple signing identity, so they are not published here.
+          EOF
+          )
+          gh release create "${TAG}" release-packages/* \
+            --title "X Big Brother ${VERSION}" \
+            --notes "${notes}"
