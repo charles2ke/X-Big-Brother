@@ -71,7 +71,9 @@ jobs:
       - run: npx cap sync android
       - name: Build unsigned Android release artifacts
         working-directory: android
-        run: JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew assembleRelease bundleRelease
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew -PreleaseVersion="${VERSION}" assembleRelease bundleRelease
       - name: Collect release packages
         env:
           VERSION: ${{ steps.version.outputs.version }}
