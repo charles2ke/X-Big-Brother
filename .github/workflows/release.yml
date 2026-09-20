@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to package, without a leading v (for example 1.0.0)'
+        description: 'Version to package, without a leading v (for example 1, 1.0, or 1.0.0)'
         required: true
         type: string
 
@@ -61,10 +61,13 @@ jobs:
           else
             version="${REF_NAME#v}"
           fi
-          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Unsupported version '${version}'; expected MAJOR.MINOR.PATCH" >&2
+          if [[ ! "${version}" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
+            echo "Unsupported version '${version}'; expected MAJOR, MAJOR.MINOR, or MAJOR.MINOR.PATCH" >&2
             exit 1
           fi
+          while [[ "${version}" != *.*.* ]]; do
+            version="${version}.0"
+          done
           echo "version=${version}" >> "$GITHUB_OUTPUT"
       - run: npm ci
       - run: npm run build
