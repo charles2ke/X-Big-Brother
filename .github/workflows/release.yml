@@ -65,9 +65,11 @@ jobs:
             echo "Unsupported version '${version}'; expected MAJOR, MAJOR.MINOR, or MAJOR.MINOR.PATCH" >&2
             exit 1
           fi
-          while [[ "${version}" != *.*.* ]]; do
-            version="${version}.0"
-          done
+          case "${version}" in
+            *.*.*) ;;
+            *.*) version="${version}.0" ;;
+            *) version="${version}.0.0" ;;
+          esac
           echo "version=${version}" >> "$GITHUB_OUTPUT"
       - run: npm ci
       - run: npm run build
