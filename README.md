@@ -2,6 +2,44 @@
 
 **Your data. Your control.** A local-only Android and iOS app for understanding network usage and reviewing app permissions, built with React, TypeScript, and Capacitor. The same dashboard also runs as a static web build, with browser limitations stated up front.
 
+![Desktop traffic dashboard](docs/screenshots/desktop-traffic.png)
+
+> Playwright capture of **fictional demo data**, not a real device.
+> More views: [mobile traffic](docs/screenshots/mobile-traffic.png) · [desktop permissions](docs/screenshots/desktop-permissions.png) · [mobile permissions](docs/screenshots/mobile-permissions.png)
+
+## Quick start
+
+Requires Node.js 22.13+ and npm.
+
+```sh
+npm ci
+npm run dev
+```
+
+The browser opens an honest unavailable-data state, because a web page cannot read another app’s traffic. Select **Explore demo** to walk through the dashboard with clearly labeled fictional apps. No accounts, remote fonts, external APIs, or analytics are involved, and demo mode is never persisted.
+
+| I want to… | Go to |
+| --- | --- |
+| Learn the dashboard controls | [Using the dashboard](#using-the-dashboard) |
+| Know what the app can and cannot measure | [What it can actually do](#what-it-can-actually-do) |
+| Understand accuracy caveats | [Coverage and accuracy](#coverage-and-accuracy) |
+| Build the static web dashboard | [Web](#web) |
+| Build and run the Android app | [Android](#android) |
+| Build and run the iOS app | [iOS](#ios) |
+| Run checks locally | [Tests and CI](#tests-and-ci) |
+| Cut a release | [Publish packages and release](#publish-packages-and-release) |
+| Report a vulnerability | [SECURITY.md](SECURITY.md) |
+
+## Using the dashboard
+
+- **Traffic overview** and **App permissions** are separate workspace views; the header always states whether you are seeing on-device, iOS-limited, browser-preview, or demo data.
+- **Last 7 / Last 30 days** and the **All networks / Wi-Fi / Mobile** filters apply to the chart, the summary cards, and the app list together.
+- Selecting an app narrows the chart to that app group and reveals its permission list; **Show all apps** returns to the combined view.
+- The app list is sorted by highest usage, shows each app group’s share as a bar, and can be filtered with the search box (name or package ID) and cleared with the × button.
+- **View daily values** exposes the same chart data as an accessible table, and **Coverage & reporting limitations** lists anything the OS could not report.
+- Failed reads show an alert with a **Try again** action instead of stale or zeroed numbers.
+- Keyboard users get a **Skip to dashboard** link, visible focus rings, and a polite live region that announces refreshes.
+
 ## What it can actually do
 
 | Capability | Android | iOS |
@@ -14,14 +52,6 @@
 
 **An ordinary third-party app cannot promise to track all traffic or revoke every permission on either platform.** This project does not bypass OS isolation, decrypt traffic, infer data sharing from byte counts, or silently populate real dashboards with sample data.
 
-### Dashboard preview
-
-Playwright captures of **fictional demo data**, not a real device:
-
-![Desktop traffic dashboard](docs/screenshots/desktop-traffic.png)
-
-[Mobile traffic](docs/screenshots/mobile-traffic.png) · [Desktop permissions](docs/screenshots/desktop-permissions.png) · [Mobile permissions](docs/screenshots/mobile-permissions.png)
-
 ### Coverage and accuracy
 
 - Android uses `NetworkStatsManager.querySummary` on a background worker, one query per network per UTC day. Bytes include both received and sent traffic.
@@ -32,17 +62,6 @@ Playwright captures of **fictional demo data**, not a real device:
 - Inaccessible networks are labeled **Unavailable**, not measured zero. A failed refresh clears old data and offers retry.
 - Permission flags do not capture all App Ops, special access, one-time grants, or background restrictions. Some normal/system permissions cannot be revoked; system Settings remains authoritative.
 - iOS Settings → **Cellular** shows system-maintained cellular usage. Settings → **Privacy & Security** manages categories of permissions. iOS does not offer this app public APIs for an all-app Wi-Fi history or permission inventory.
-
-## Run the dashboard
-
-Requires Node.js 22.13+ and npm.
-
-```sh
-npm ci
-npm run dev
-```
-
-The browser starts with an honest unavailable-data state. Select **Explore demo** to use fictional app data. Demo mode is never persisted; it cannot open another app’s settings. There are no accounts, remote fonts, external APIs, or analytics.
 
 ## Web
 

@@ -4,6 +4,8 @@ import { aggregate, bytesLabel, dayKeys, demoSnapshot, filterApps, total } from 
 import type { AppUsage, Network, Period, Snapshot } from './traffic'
 import './App.css'
 
+const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`
+
 function App() {
   const [page, setPage] = useState<'traffic' | 'permissions'>('traffic')
   const [period, setPeriod] = useState<Period>(7)
@@ -13,14 +15,14 @@ function App() {
   const [selected, setSelected] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<{ message: string; retry: () => void } | null>(null)
   const request = useRef(0)
   const loading = useRef(false)
   const cancelPending = useCallback(() => { request.current++ }, [])
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async function refresh() {
     const current = ++request.current
-    setError('')
+    setError(null)
     setSnapshot(null)
     loading.current = true
     setBusy(true)
@@ -29,7 +31,7 @@ function App() {
         ? await TrafficMonitor.getSnapshot({ days: period }) : null
       if (current === request.current) setSnapshot(data)
     } catch {
-      if (current === request.current) setError('Unable to read device data. Check usage access in Settings, then retry.')
+      if (current === request.current) setError({ message: 'Unable to read device data. Check usage access in Settings, then retry.', retry: () => void refresh() })
     } finally {
       if (current === request.current) {
         loading.current = false
@@ -51,8 +53,8 @@ function App() {
   }, [refresh, cancelPending])
 
   const runSettings = async (action: () => Promise<void>) => {
-    setError('')
-    try { await action() } catch { setError('Could not open Settings. Please open your device Settings manually.') }
+    setError(null)
+    try { await action() } catch { setError({ message: 'Could not open Settings. Please open your device Settings manually.', retry: () => void runSettings(action) }) }
   }
   const apps = snapshot?.apps ?? []
   const dates = dayKeys(period, snapshot ? new Date(snapshot.generatedAt) : new Date())
@@ -67,6 +69,8 @@ function App() {
       ? 'Unavailable' : bytesLabel(total(days, kind))
   const max = Math.max(1, ...chartDays.map(day => total([day], network)))
   const filtered = filterApps(apps, search, network)
+  const showShare = hasUsage && !networkUnavailable
+  const topUsage = Math.max(1, ...filtered.map(app => total(app.days, network)))
   const granted = apps.reduce((sum, app) => sum + app.permissions.filter(p => p.granted).length, 0)
 
   const permissions = (app: AppUsage) => (
@@ -87,6 +91,7 @@ function App() {
 
   return (
     <div className="shell">
+      <a className="skip-link" href="#main">Skip to dashboard</a>
       <aside className="sidebar">
         <a className="brand" href="#main"><span className="brand-icon" aria-hidden="true">X</span><span>BIG BROTHER<small>YOUR DATA. YOUR CONTROL.</small></span></a>
         <div className="nav-label">WORKSPACE</div>
@@ -98,9 +103,10 @@ function App() {
         <div className="sidebar-footer">X BIG BROTHER <span>v0.1</span></div>
       </aside>
 
-      <main id="main">
+      <main id="main" tabIndex={-1}>
         <header className="topbar"><span>DEVICE INSIGHTS <span className="slash">/</span> {page === 'traffic' ? 'OVERVIEW' : 'PERMISSIONS'}</span><span className="status"><i /> {demo ? 'DEMO MODE' : platform === 'android' ? 'ON DEVICE' : platform === 'ios' ? 'iOS · LIMITED ACCESS' : 'BROWSER PREVIEW'}</span></header>
-        <div className="content">
+        <div className="content" aria-busy={busy}>
+          <p className="visually-hidden" aria-live="polite">{busy ? 'Reading device data…' : snapshot ? `${demo ? 'Sample' : 'Device'} data updated. ${plural(filtered.length, 'app group')} listed.` : 'No device data available.'}</p>
           <div className="heading-row"><div><p className="eyebrow">A LITTLE VISIBILITY. A LOT MORE CONTROL.</p><h1>{page === 'traffic' ? 'Know where your data goes.' : 'Permissions, in plain sight.'}</h1><p className="subtitle">{page === 'traffic' ? 'Understand your network activity, one app at a time.' : 'Review what apps can access. You decide what stays on.'}</p></div>
             <button className="secondary refresh" disabled={busy} onClick={() => void refresh()}>{busy ? 'Reading…' : '↻ Refresh'}</button></div>
 
@@ -109,7 +115,7 @@ function App() {
                 {platform === 'ios' && <button className="settings-button" onClick={() => void runSettings(() => DeviceSettings.openAppSettings())}>Open this app’s Settings ↗</button>}</div><button className="primary" onClick={() => setDemo(true)}>Explore demo <span aria-hidden="true">→</span></button></section>
               : !hasUsage && !busy && <section className="notice"><div><strong>Allow usage access to see traffic</strong><p>Android requires your approval to read network statistics. Permission inventory is available separately. You can withdraw access at any time.</p></div><button className="primary" onClick={() => void runSettings(() => TrafficMonitor.openUsageSettings())}>Open usage settings ↗</button></section>}
 
-          {error && <div className="error" role="alert">{error}</div>}
+          {error && <div className="error" role="alert"><span>{error.message}</span><button className="secondary" disabled={busy} onClick={() => error.retry()}>{busy ? 'Reading…' : 'Try again'}</button></div>}
           {!demo && snapshot && snapshot.warnings.length > 0 && <details className="coverage"><summary>Coverage & reporting limitations ({snapshot.warnings.length})</summary><ul>{snapshot.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul></details>}
           {!demo && unavailable.length > 0 && <div className="error" role="status">{unavailable.join(' and ')} statistics are unavailable on this device. Totals that include them are not shown.</div>}
 
@@ -135,14 +141,14 @@ function App() {
           </section>}
 
           <section className="panel apps-panel">
-            <div className="panel-heading"><div><h2>{page === 'traffic' ? 'App breakdown' : 'App permission inventory'}</h2><p>{page === 'traffic' ? 'Select an app to explore its trend and permissions.' : 'Granted means Android reports the permission flag, not necessarily unrestricted access.'}</p></div><label className="search"><span aria-hidden="true">⌕</span><input aria-label="Search apps" placeholder="Search apps…" value={search} onChange={event => setSearch(event.target.value)} /></label></div>
-            <div className="app-filter"><div className="segmented" aria-label="Network filter">{(['all', 'wifi', 'mobile'] as const).map(kind => <button key={kind} aria-pressed={network === kind} className={network === kind ? 'chosen' : ''} onClick={() => setNetwork(kind)}>{kind === 'all' ? 'All networks' : kind === 'wifi' ? 'Wi-Fi' : 'Mobile'}</button>)}</div><small>{filtered.length} app groups{networkUnavailable ? ' · network unavailable' : ' · highest usage first'}</small></div>
+            <div className="panel-heading"><div><h2>{page === 'traffic' ? 'App breakdown' : 'App permission inventory'}</h2><p>{page === 'traffic' ? 'Select an app to explore its trend and permissions.' : 'Granted means Android reports the permission flag, not necessarily unrestricted access.'}</p></div><label className="search"><span aria-hidden="true">⌕</span><input aria-label="Search apps" placeholder="Search apps…" value={search} onChange={event => setSearch(event.target.value)} />{search && <button className="clear-search" aria-label="Clear search" onClick={() => setSearch('')}>×</button>}</label></div>
+            <div className="app-filter"><div className="segmented" aria-label="Network filter">{(['all', 'wifi', 'mobile'] as const).map(kind => <button key={kind} aria-pressed={network === kind} className={network === kind ? 'chosen' : ''} onClick={() => setNetwork(kind)}>{kind === 'all' ? 'All networks' : kind === 'wifi' ? 'Wi-Fi' : 'Mobile'}</button>)}</div><small>{plural(filtered.length, 'app group')}{networkUnavailable ? ' · network unavailable' : ' · highest usage first'}</small></div>
             {filtered.length === 0 ? <div className="empty-apps"><strong>{search ? 'No matching apps' : 'No apps to show yet'}</strong><p>{search ? 'Try another name or package ID.' : busy ? 'Reading visible apps…' : 'Device data appears here when available. Demo data is always clearly labeled.'}</p></div> :
               <div className="app-list">{filtered.map((app, index) => <article className={`app-item ${selected === app.id ? 'selected' : ''}`} key={app.id}>
                 <button className="app-row" aria-expanded={selected === app.id} onClick={() => setSelected(selected === app.id ? null : app.id)}>
                   <span className={`app-avatar avatar-${index % 6}`} aria-hidden="true">{app.name.slice(0, 1)}</span>
-                  <span className="app-name"><strong>{app.name}</strong><small>{app.packages.join(' · ')}</small></span>
-                  <span className="app-value"><strong>{usageLabel(app.days, network)}</strong><small>{app.permissions.filter(p => p.granted).length} grants</small></span><span className="chevron" aria-hidden="true">{selected === app.id ? '−' : '+'}</span>
+                  <span className="app-name"><strong>{app.name}</strong><small>{app.packages.join(' · ')}</small>{showShare && <span className="app-share" aria-hidden="true"><i style={{ width: `${total(app.days, network) / topUsage * 100}%` }} /></span>}</span>
+                  <span className="app-value"><strong>{usageLabel(app.days, network)}</strong><small>{plural(app.permissions.filter(p => p.granted).length, 'grant')}</small></span><span className="chevron" aria-hidden="true">{selected === app.id ? '−' : '+'}</span>
                 </button>
                 {selected === app.id && <div className="app-detail">{app.packages.length > 1 && <p className="muted">Shared UID: traffic is combined; permission grants are grouped by permission name.</p>}{page === 'traffic' && <p className="muted">This app’s daily trend is shown in the chart above.</p>}{permissions(app)}</div>}
               </article>)}</div>}
