@@ -15,14 +15,14 @@ function App() {
   const [selected, setSelected] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<{ message: string; retry: () => void } | null>(null)
   const request = useRef(0)
   const loading = useRef(false)
   const cancelPending = useCallback(() => { request.current++ }, [])
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async function refresh() {
     const current = ++request.current
-    setError('')
+    setError(null)
     setSnapshot(null)
     loading.current = true
     setBusy(true)
@@ -31,7 +31,7 @@ function App() {
         ? await TrafficMonitor.getSnapshot({ days: period }) : null
       if (current === request.current) setSnapshot(data)
     } catch {
-      if (current === request.current) setError('Unable to read device data. Check usage access in Settings, then retry.')
+      if (current === request.current) setError({ message: 'Unable to read device data. Check usage access in Settings, then retry.', retry: () => void refresh() })
     } finally {
       if (current === request.current) {
         loading.current = false
@@ -53,8 +53,8 @@ function App() {
   }, [refresh, cancelPending])
 
   const runSettings = async (action: () => Promise<void>) => {
-    setError('')
-    try { await action() } catch { setError('Could not open Settings. Please open your device Settings manually.') }
+    setError(null)
+    try { await action() } catch { setError({ message: 'Could not open Settings. Please open your device Settings manually.', retry: () => void runSettings(action) }) }
   }
   const apps = snapshot?.apps ?? []
   const dates = dayKeys(period, snapshot ? new Date(snapshot.generatedAt) : new Date())
@@ -115,7 +115,7 @@ function App() {
                 {platform === 'ios' && <button className="settings-button" onClick={() => void runSettings(() => DeviceSettings.openAppSettings())}>Open this app’s Settings ↗</button>}</div><button className="primary" onClick={() => setDemo(true)}>Explore demo <span aria-hidden="true">→</span></button></section>
               : !hasUsage && !busy && <section className="notice"><div><strong>Allow usage access to see traffic</strong><p>Android requires your approval to read network statistics. Permission inventory is available separately. You can withdraw access at any time.</p></div><button className="primary" onClick={() => void runSettings(() => TrafficMonitor.openUsageSettings())}>Open usage settings ↗</button></section>}
 
-          {error && <div className="error" role="alert"><span>{error}</span><button className="secondary" disabled={busy} onClick={() => void refresh()}>{busy ? 'Reading…' : 'Try again'}</button></div>}
+          {error && <div className="error" role="alert"><span>{error.message}</span><button className="secondary" disabled={busy} onClick={() => error.retry()}>{busy ? 'Reading…' : 'Try again'}</button></div>}
           {!demo && snapshot && snapshot.warnings.length > 0 && <details className="coverage"><summary>Coverage & reporting limitations ({snapshot.warnings.length})</summary><ul>{snapshot.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul></details>}
           {!demo && unavailable.length > 0 && <div className="error" role="status">{unavailable.join(' and ')} statistics are unavailable on this device. Totals that include them are not shown.</div>}
 
