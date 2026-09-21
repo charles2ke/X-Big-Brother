@@ -103,7 +103,7 @@ function App() {
         <div className="sidebar-footer">X BIG BROTHER <span>v0.1</span></div>
       </aside>
 
-      <main id="main">
+      <main id="main" tabIndex={-1}>
         <header className="topbar"><span>DEVICE INSIGHTS <span className="slash">/</span> {page === 'traffic' ? 'OVERVIEW' : 'PERMISSIONS'}</span><span className="status"><i /> {demo ? 'DEMO MODE' : platform === 'android' ? 'ON DEVICE' : platform === 'ios' ? 'iOS · LIMITED ACCESS' : 'BROWSER PREVIEW'}</span></header>
         <div className="content" aria-busy={busy}>
           <p className="visually-hidden" aria-live="polite">{busy ? 'Reading device data…' : snapshot ? `${demo ? 'Sample' : 'Device'} data updated. ${plural(filtered.length, 'app group')} listed.` : 'No device data available.'}</p>
