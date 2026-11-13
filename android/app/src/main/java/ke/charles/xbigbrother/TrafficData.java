@@ -45,15 +45,21 @@ final class TrafficData {
         return formatter.format(new Date(timestamp));
     }
 
-    static void addBytes(Map<Integer, Long> totals, int uid, long rx, long tx) {
+    /** Adds one bucket to a UID's {received, sent} byte counters. */
+    static void addBytes(Map<Integer, long[]> totals, int uid, long rx, long tx) {
         if (rx < 0 || tx < 0) {
             throw new IllegalArgumentException("Android returned invalid traffic counters");
         }
-        totals.put(uid, Math.addExact(totals.getOrDefault(uid, 0L), Math.addExact(rx, tx)));
+        long[] previous = totals.getOrDefault(uid, new long[2]);
+        long received = Math.addExact(previous[0], rx);
+        long sent = Math.addExact(previous[1], tx);
+        // The bridge also reports received + sent, so the combined total must fit too.
+        Math.addExact(received, sent);
+        totals.put(uid, new long[] {received, sent});
     }
 
     static void updateAvailability(
-        Set<String> unavailableNetworks, Map<Integer, Long> wifi, Map<Integer, Long> mobile
+        Set<String> unavailableNetworks, Map<Integer, long[]> wifi, Map<Integer, long[]> mobile
     ) {
         if (wifi == null) {
             unavailableNetworks.add("wifi");
@@ -63,13 +69,24 @@ final class TrafficData {
         }
     }
 
-    static long[] countersForDay(int uid, Map<Integer, Long> wifi, Map<Integer, Long> mobile) {
+    /** Returns {Wi-Fi received + sent, mobile received + sent, Wi-Fi sent, mobile sent}. */
+    static long[] countersForDay(int uid, Map<Integer, long[]> wifi, Map<Integer, long[]> mobile) {
         // The numeric bridge fields cannot encode unknown. Consumers must ignore a
         // transport for the entire snapshot when it appears in unavailableNetworks;
         // its zero placeholders and any partial counters are not measured totals.
+        long[] wifiBytes = wifi == null ? null : wifi.get(uid);
+        long[] mobileBytes = mobile == null ? null : mobile.get(uid);
+        if (wifiBytes == null) {
+            wifiBytes = new long[2];
+        }
+        if (mobileBytes == null) {
+            mobileBytes = new long[2];
+        }
         return new long[] {
-            wifi == null ? 0 : wifi.getOrDefault(uid, 0L),
-            mobile == null ? 0 : mobile.getOrDefault(uid, 0L)
+            Math.addExact(wifiBytes[0], wifiBytes[1]),
+            Math.addExact(mobileBytes[0], mobileBytes[1]),
+            wifiBytes[1],
+            mobileBytes[1]
         };
     }
 }

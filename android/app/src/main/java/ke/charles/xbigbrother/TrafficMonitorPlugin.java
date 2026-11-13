@@ -97,8 +97,8 @@ public class TrafficMonitorPlugin extends Plugin {
                     if (Thread.currentThread().isInterrupted()) {
                         throw new IllegalStateException("Snapshot cancelled");
                     }
-                    Map<Integer, Long> wifi = queryTransport(manager, ConnectivityManager.TYPE_WIFI, window, warnings);
-                    Map<Integer, Long> mobile;
+                    Map<Integer, long[]> wifi = queryTransport(manager, ConnectivityManager.TYPE_WIFI, window, warnings);
+                    Map<Integer, long[]> mobile;
                     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                         // Android 10+ supports a null subscriber ID for aggregate mobile queries.
                         // On older releases we refuse to request phone identifiers/READ_PHONE_STATE.
@@ -117,6 +117,8 @@ public class TrafficMonitorPlugin extends Plugin {
                         day.put("date", window.date);
                         day.put("wifi", bytes[0]);
                         day.put("mobile", bytes[1]);
+                        day.put("wifiSent", bytes[2]);
+                        day.put("mobileSent", bytes[3]);
                         group.days.put(day);
                     }
                 }
@@ -214,7 +216,7 @@ public class TrafficMonitorPlugin extends Plugin {
     }
 
     @SuppressWarnings("deprecation")
-    private Map<Integer, Long> queryTransport(
+    private Map<Integer, long[]> queryTransport(
         NetworkStatsManager manager, int transport, TrafficData.Window window, Set<String> warnings
     ) {
         String label = transport == ConnectivityManager.TYPE_WIFI ? "Wi-Fi" : "Mobile";
@@ -225,7 +227,7 @@ public class TrafficMonitorPlugin extends Plugin {
                 warnings.add(label + " statistics are unavailable. This network's totals are unknown, not zero.");
                 return null;
             }
-            Map<Integer, Long> totals = new HashMap<>();
+            Map<Integer, long[]> totals = new HashMap<>();
             NetworkStats.Bucket bucket = new NetworkStats.Bucket();
             while (stats.hasNextBucket()) {
                 if (!stats.getNextBucket(bucket)) {

@@ -33,20 +33,24 @@ The browser opens an honest unavailable-data state, because a web page cannot re
 ## Using the dashboard
 
 - **Traffic overview** and **App permissions** are separate workspace views; the header always states whether you are seeing on-device, iOS-limited, browser-preview, or demo data.
-- **Last 7 / Last 30 days** and the **All networks / Wi-Fi / Mobile** filters apply to the chart, the summary cards, and the app list together.
-- Selecting an app narrows the chart to that app group and reveals its permission list; **Show all apps** returns to the combined view.
-- The app list is sorted by highest usage, shows each app group’s share as a bar, and can be filtered with the search box (name or package ID) and cleared with the × button.
+- **Last 7 / Last 30 days**, the **All networks / Wi-Fi / Mobile** filter, and the **Received + sent / Received / Sent** direction filter apply to the chart, its insights, and the app list together. The Wi-Fi and Mobile cards always show received (↓) and sent (↑) bytes.
+- Above the chart, insights show the **daily average** (today counts as a partial day), the **peak day**, and either the received/sent split or the selected direction’s share of all traffic.
+- Choose a chart day (click, tap, or focus it and use ←/→, Home, End, then Enter) to list that day’s **top apps** with their share; **Close day** returns focus to the chart.
+- Selecting an app narrows the chart to that app group and reveals its permission list; **Show all apps** returns to the combined view. If a day is chosen, the selected app is highlighted among that day’s top apps.
+- The app list can be sorted (**Highest usage** or **Name** for traffic; **Most sensitive access** or **Name** for permissions), shows each app group’s share as a bar, and can be filtered with the search box (name or package ID) and cleared with the × button.
+- On **App permissions**, **Sensitive access** counts the app groups granted each runtime permission category, grouped as in Android’s permission manager (camera, microphone, location, contacts, nearby devices, and more). Choose a category to list only those app groups, and **Clear filter** to show all again. Search also matches permission names, IDs, and categories, such as “microphone” or “nearby”.
+- Each app’s permission list shows sensitive runtime permissions first and keeps routine ones, such as network access, under **Other permissions**.
 - **View daily values** exposes the same chart data as an accessible table, and **Coverage & reporting limitations** lists anything the OS could not report.
 - Failed reads show an alert with a **Try again** action instead of stale or zeroed numbers.
-- Keyboard users get a **Skip to dashboard** link, visible focus rings, and a polite live region that announces refreshes.
+- Keyboard users get a **Skip to dashboard** link, visible focus rings, and a polite live region that announces refreshes and the chosen day.
 
 ## What it can actually do
 
 | Capability | Android | iOS |
 | --- | --- | --- |
-| Wi-Fi and mobile received + sent totals by app | OS-reported statistics for visible launcher-app UIDs, after you grant Usage access. Mobile requires Android 10+. | Not available for other apps through public iOS APIs. |
-| Daily trends | Last 7 or 30 UTC days, including partial today; select an app and network. | Clearly labeled fictional demo only. |
-| Permission inventory | Declared permission grant flags for visible apps, even without Usage access. | Cannot inspect other apps’ permission grants. |
+| Wi-Fi and mobile traffic by app, received and sent | OS-reported received and sent bytes for visible launcher-app UIDs, after you grant Usage access. Mobile requires Android 10+. | Not available for other apps through public iOS APIs. |
+| Daily trends | Last 7 or 30 UTC days, including partial today; select an app, network, and direction, plus a day for its top apps. | Clearly labeled fictional demo only. |
+| Permission inventory | Declared permission grant flags for visible apps, even without Usage access, with runtime permissions grouped into Android’s permission categories. | Cannot inspect other apps’ permission grants. |
 | Stop a permission | Opens the selected app’s Android Settings, where **you** revoke eligible permissions. | Opens this app’s Settings; guidance directs you to Privacy & Security for other apps. |
 | Device-wide packet capture or traffic blocking | Not implemented. No VPN, root, or interception. | Not implemented. No Network Extension entitlement. |
 
@@ -54,13 +58,14 @@ The browser opens an honest unavailable-data state, because a web page cannot re
 
 ### Coverage and accuracy
 
-- Android uses `NetworkStatsManager.querySummary` on a background worker, one query per network per UTC day. Bytes include both received and sent traffic.
+- Android uses `NetworkStatsManager.querySummary` on a background worker, one query per network per UTC day. Received (rx) and sent (tx) bytes are reported separately; totals are their sum.
 - Android 7–9 expose Wi-Fi only here: mobile queries would need phone identifiers, which this app deliberately does not request. On Android 10+, a null subscriber ID requests aggregate mobile statistics without reading SIM identifiers.
 - Totals cover **visible launcher apps in the current profile**, not device totals. Hidden/system apps, uninstalled apps, and other profiles may be missing. Package visibility is limited rather than requesting `QUERY_ALL_PACKAGES`.
 - Shared-UID packages form one app group to avoid double-counting. Their traffic cannot be separated; hidden siblings may contribute. Permissions are combined across the visible packages in the group.
 - Network statistics can lag, use coarse reporting buckets, vary by OS/OEM, and differ from carrier bills. Daily values are OS estimates, not exact packet timestamps. VPN, tethering, dual-SIM, and work-profile attribution depend on Android.
 - Inaccessible networks are labeled **Unavailable**, not measured zero. A failed refresh clears old data and offers retry.
 - Permission flags do not capture all App Ops, special access, one-time grants, or background restrictions. Some normal/system permissions cannot be revoked; system Settings remains authoritative.
+- **Sensitive access** covers granted runtime permissions only. Special access (such as accessibility, usage access, display over other apps, or notification access) is not counted, so an app with no sensitive grant can still hold powerful access. Permissions an OEM or app defines itself are listed under **Other permissions**.
 - iOS Settings → **Cellular** shows system-maintained cellular usage. Settings → **Privacy & Security** manages categories of permissions. iOS does not offer this app public APIs for an all-app Wi-Fi history or permission inventory.
 
 ## Web
@@ -132,7 +137,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Unit tests cover formatting, UTC windows, aggregation, filtering, and deterministic demo data. Playwright exercises desktop/mobile layouts, demo navigation, per-app trends, permissions, unavailable states, and mocked Android/iOS bridge contracts. **Mocked browser tests are not native-device tests.**
+Unit tests cover formatting, UTC windows, aggregation, received/sent splits, filtering and sorting, daily insights, permission categories, and deterministic demo data. Android JUnit tests cover per-direction byte accounting and overflow checks. Playwright exercises desktop/mobile layouts, demo navigation, per-app trends, the direction filter, day drill-down by pointer and keyboard, sensitive-access filters, permission search, unavailable states, and mocked Android/iOS bridge contracts. **Mocked browser tests are not native-device tests.**
 
 GitHub Actions runs these checks, Android build/unit tests/lint, and an unsigned iOS simulator build. The `playwright-report-and-screenshots` artifact contains HTML results and screenshot attachments for both viewports; `android-debug-apk` contains the installable debug build.
 
