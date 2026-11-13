@@ -48,29 +48,35 @@ public class TrafficDataTest {
     }
 
     @Test
-    public void sumsMultipleBucketsForOneUidWithoutAffectingOtherUids() {
-        Map<Integer, Long> totals = new HashMap<>();
+    public void sumsMultipleBucketsForOneUidPerDirectionWithoutAffectingOtherUids() {
+        Map<Integer, long[]> totals = new HashMap<>();
         TrafficData.addBytes(totals, 10001, 10, 20);
         TrafficData.addBytes(totals, 10001, 3, 4);
         TrafficData.addBytes(totals, 10002, 50, 60);
-        assertEquals(Long.valueOf(37), totals.get(10001));
-        assertEquals(Long.valueOf(110), totals.get(10002));
+        assertArrayEquals(new long[] {13, 24}, totals.get(10001));
+        assertArrayEquals(new long[] {50, 60}, totals.get(10002));
     }
 
     @Test
     public void unavailableTransportPreservesOtherTransportWithFlaggedPlaceholder() {
-        Map<Integer, Long> wifi = new HashMap<>();
-        wifi.put(10001, 23L);
-        assertArrayEquals(new long[] {23, 0}, TrafficData.countersForDay(10001, wifi, null));
-        assertArrayEquals(new long[] {0, 23}, TrafficData.countersForDay(10001, null, wifi));
-        assertArrayEquals(new long[] {0, 0}, TrafficData.countersForDay(10001, null, null));
-        assertArrayEquals(new long[] {23, 0}, TrafficData.countersForDay(10001, wifi, new HashMap<>()));
-        assertArrayEquals(new long[] {0, 0}, TrafficData.countersForDay(10002, wifi, new HashMap<>()));
+        Map<Integer, long[]> wifi = new HashMap<>();
+        TrafficData.addBytes(wifi, 10001, 20, 3);
+        // {Wi-Fi received + sent, mobile received + sent, Wi-Fi sent, mobile sent}
+        assertArrayEquals(new long[] {23, 0, 3, 0}, TrafficData.countersForDay(10001, wifi, null));
+        assertArrayEquals(new long[] {0, 23, 0, 3}, TrafficData.countersForDay(10001, null, wifi));
+        assertArrayEquals(new long[] {0, 0, 0, 0}, TrafficData.countersForDay(10001, null, null));
+        assertArrayEquals(new long[] {23, 0, 3, 0}, TrafficData.countersForDay(10001, wifi, new HashMap<>()));
+        assertArrayEquals(new long[] {0, 0, 0, 0}, TrafficData.countersForDay(10002, wifi, new HashMap<>()));
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void rejectsNegativeCounters() {
         TrafficData.addBytes(new HashMap<>(), 10001, -1, 0);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsNegativeSentCounters() {
+        TrafficData.addBytes(new HashMap<>(), 10001, 0, -1);
     }
 
     @Test(expected = ArithmeticException.class)
@@ -81,7 +87,7 @@ public class TrafficDataTest {
     @Test
     public void anyFailedDayMarksTransportUnavailableForWholeSnapshot() {
         Set<String> unavailable = new HashSet<>();
-        Map<Integer, Long> available = new HashMap<>();
+        Map<Integer, long[]> available = new HashMap<>();
         TrafficData.updateAvailability(unavailable, available, available);
         assertTrue(unavailable.isEmpty());
         TrafficData.updateAvailability(unavailable, available, null);

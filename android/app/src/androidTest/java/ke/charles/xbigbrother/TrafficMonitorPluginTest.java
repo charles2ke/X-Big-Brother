@@ -66,6 +66,14 @@ public class TrafficMonitorPluginTest {
             if (!call.result.getBoolean("accessGranted")) {
                 assertEquals(0, app.getJSONArray("days").length());
             }
+            JSONArray days = app.getJSONArray("days");
+            for (int d = 0; d < days.length(); d++) {
+                JSONObject day = days.getJSONObject(d);
+                for (String network : new String[] {"wifi", "mobile"}) {
+                    long sent = day.getLong(network + "Sent");
+                    assertTrue("Sent bytes must be part of the total", sent >= 0 && sent <= day.getLong(network));
+                }
+            }
             JSONArray packages = app.getJSONArray("packages");
             for (int p = 0; p < packages.length(); p++) {
                 if (context.getPackageName().equals(packages.getString(p))) {
