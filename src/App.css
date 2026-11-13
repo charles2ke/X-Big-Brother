@@ -192,7 +192,8 @@ td, th { padding: 10px; border-bottom: 1px solid #303947; }
   .stat-icon { font-size: 17px; }
   .panel-heading { padding: 18px 16px 0; align-items: start; flex-wrap: wrap; }
   .chart-meta { padding: 18px 16px 0; }
-  .chart { padding-inline: 16px; gap: 4px; }
+  .chart { padding-inline: 16px; gap: 4px; overflow-x: auto; }
+  .chart-column { flex: 1 0 40px; }
   .chart-legend { font-size: 9px; }
   .insights { margin-inline: 16px; gap: 12px 24px; }
   .day-details { margin-inline: 16px; padding: 14px; }

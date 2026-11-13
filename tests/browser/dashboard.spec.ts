@@ -26,6 +26,10 @@ test('demo supports time windows, networks, app trends, search, permissions and 
   await expect(page.locator('.app-row')).toHaveCount(6)
   await page.getByRole('button', { name: 'Last 30 days' }).click()
   await expect(page.locator('.chart-column')).toHaveCount(30)
+  if (testInfo.project.name === 'mobile') {
+    await expect.poll(() => page.locator('.chart-column').first().evaluate(column => column.getBoundingClientRect().width)).toBeGreaterThanOrEqual(40)
+    await expect.poll(() => page.locator('.chart').evaluate(chart => chart.scrollWidth > chart.clientWidth)).toBe(true)
+  }
   await page.getByRole('button', { name: 'Mobile', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Mobile', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await page.getByLabel('Search apps').fill('streamline')
