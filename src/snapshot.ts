@@ -26,7 +26,11 @@ const unique = (seen: Set<string>, value: string, path: string) => {
 function day(value: unknown, path: string, dates: Set<string>, background: boolean): DayUsage {
   const raw = object(value, path)
   const date = text(raw.date, `${path}.date`)
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) fail(`${path}.date must be YYYY-MM-DD`)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) fail(`${path}.date must be a valid YYYY-MM-DD date`)
+  const parsedDate = new Date(`${date}T00:00:00.000Z`)
+  if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) {
+    fail(`${path}.date must be a valid YYYY-MM-DD date`)
+  }
   unique(dates, date, `${path}.date`)
   const field = (key: keyof DayUsage) => bytes(raw[key], `${path}.${key}`)
   const split = (key: keyof DayUsage) => background ? field(key) : 0
