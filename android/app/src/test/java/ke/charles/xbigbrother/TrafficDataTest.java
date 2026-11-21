@@ -50,38 +50,68 @@ public class TrafficDataTest {
     @Test
     public void sumsMultipleBucketsForOneUidPerDirectionWithoutAffectingOtherUids() {
         Map<Integer, long[]> totals = new HashMap<>();
-        TrafficData.addBytes(totals, 10001, 10, 20);
-        TrafficData.addBytes(totals, 10001, 3, 4);
-        TrafficData.addBytes(totals, 10002, 50, 60);
-        assertArrayEquals(new long[] {13, 24}, totals.get(10001));
-        assertArrayEquals(new long[] {50, 60}, totals.get(10002));
+        TrafficData.addBytes(totals, 10001, 10, 20, false);
+        TrafficData.addBytes(totals, 10001, 3, 4, false);
+        TrafficData.addBytes(totals, 10002, 50, 60, false);
+        assertArrayEquals(new long[] {13, 24, 0, 0}, totals.get(10001));
+        assertArrayEquals(new long[] {50, 60, 0, 0}, totals.get(10002));
+    }
+
+    @Test
+    public void backgroundBucketsCountTowardsTotalsAndTheBackgroundShare() {
+        Map<Integer, long[]> totals = new HashMap<>();
+        TrafficData.addBytes(totals, 10001, 100, 10, false);
+        TrafficData.addBytes(totals, 10001, 30, 5, true);
+        TrafficData.addBytes(totals, 10001, 2, 1, true);
+        // {received, sent, background received, background sent}
+        assertArrayEquals(new long[] {132, 16, 32, 6}, totals.get(10001));
+    }
+
+    @Test
+    public void dayCountersFollowTheBridgeFieldOrder() {
+        Map<Integer, long[]> wifi = new HashMap<>();
+        Map<Integer, long[]> mobile = new HashMap<>();
+        TrafficData.addBytes(wifi, 10001, 100, 10, false);
+        TrafficData.addBytes(wifi, 10001, 30, 5, true);
+        TrafficData.addBytes(mobile, 10001, 7, 3, true);
+        long[] counters = TrafficData.dayCounters(10001, wifi, mobile);
+        assertEquals(TrafficData.DAY_FIELDS.length, counters.length);
+        // wifi, mobile, wifiSent, mobileSent, wifiBackground, mobileBackground, wifiBackgroundSent, mobileBackgroundSent
+        assertArrayEquals(new long[] {145, 10, 15, 3, 35, 10, 5, 3}, counters);
     }
 
     @Test
     public void unavailableTransportPreservesOtherTransportWithFlaggedPlaceholder() {
         Map<Integer, long[]> wifi = new HashMap<>();
-        TrafficData.addBytes(wifi, 10001, 20, 3);
-        // {Wi-Fi received + sent, mobile received + sent, Wi-Fi sent, mobile sent}
-        assertArrayEquals(new long[] {23, 0, 3, 0}, TrafficData.countersForDay(10001, wifi, null));
-        assertArrayEquals(new long[] {0, 23, 0, 3}, TrafficData.countersForDay(10001, null, wifi));
-        assertArrayEquals(new long[] {0, 0, 0, 0}, TrafficData.countersForDay(10001, null, null));
-        assertArrayEquals(new long[] {23, 0, 3, 0}, TrafficData.countersForDay(10001, wifi, new HashMap<>()));
-        assertArrayEquals(new long[] {0, 0, 0, 0}, TrafficData.countersForDay(10002, wifi, new HashMap<>()));
+        TrafficData.addBytes(wifi, 10001, 20, 3, true);
+        assertArrayEquals(new long[] {23, 0, 3, 0, 23, 0, 3, 0}, TrafficData.dayCounters(10001, wifi, null));
+        assertArrayEquals(new long[] {0, 23, 0, 3, 0, 23, 0, 3}, TrafficData.dayCounters(10001, null, wifi));
+        assertArrayEquals(new long[] {23, 0, 3, 0, 23, 0, 3, 0}, TrafficData.dayCounters(10001, wifi, new HashMap<>()));
+    }
+
+    @Test
+    public void daysWithoutTrafficAreOmitted() {
+        Map<Integer, long[]> wifi = new HashMap<>();
+        TrafficData.addBytes(wifi, 10001, 20, 3, false);
+        TrafficData.addBytes(wifi, 10003, 0, 0, true);
+        assertNull(TrafficData.dayCounters(10001, null, null));
+        assertNull(TrafficData.dayCounters(10002, wifi, new HashMap<>()));
+        assertNull(TrafficData.dayCounters(10003, wifi, new HashMap<>()));
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void rejectsNegativeCounters() {
-        TrafficData.addBytes(new HashMap<>(), 10001, -1, 0);
+        TrafficData.addBytes(new HashMap<>(), 10001, -1, 0, false);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void rejectsNegativeSentCounters() {
-        TrafficData.addBytes(new HashMap<>(), 10001, 0, -1);
+        TrafficData.addBytes(new HashMap<>(), 10001, 0, -1, true);
     }
 
     @Test(expected = ArithmeticException.class)
     public void rejectsOverflowRatherThanReturningNegativeUsage() {
-        TrafficData.addBytes(new HashMap<>(), 10001, Long.MAX_VALUE, 1);
+        TrafficData.addBytes(new HashMap<>(), 10001, Long.MAX_VALUE, 1, true);
     }
 
     @Test

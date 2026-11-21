@@ -112,13 +112,17 @@ public class TrafficMonitorPlugin extends Plugin {
                     // The other transport remains usable, including on Android 7–9.
                     TrafficData.updateAvailability(unavailableNetworks, wifi, mobile);
                     for (AppGroup group : groups.values()) {
-                        long[] bytes = TrafficData.countersForDay(group.uid, wifi, mobile);
+                        long[] bytes = TrafficData.dayCounters(group.uid, wifi, mobile);
+                        // Days without traffic are omitted to keep the bridge payload small; the
+                        // dashboard reads a missing day as zero.
+                        if (bytes == null) {
+                            continue;
+                        }
                         JSObject day = new JSObject();
                         day.put("date", window.date);
-                        day.put("wifi", bytes[0]);
-                        day.put("mobile", bytes[1]);
-                        day.put("wifiSent", bytes[2]);
-                        day.put("mobileSent", bytes[3]);
+                        for (int i = 0; i < TrafficData.DAY_FIELDS.length; i++) {
+                            day.put(TrafficData.DAY_FIELDS[i], bytes[i]);
+                        }
                         group.days.put(day);
                     }
                 }
@@ -147,6 +151,8 @@ public class TrafficMonitorPlugin extends Plugin {
         result.put("apps", apps);
         result.put("warnings", new JSArray(new ArrayList<>(warnings)));
         result.put("unavailableNetworks", new JSArray(new ArrayList<>(unavailableNetworks)));
+        // Every day carries the foreground/background split read in queryTransport.
+        result.put("backgroundAvailable", true);
         return result;
     }
 
@@ -168,6 +174,8 @@ public class TrafficMonitorPlugin extends Plugin {
     private Map<Integer, AppGroup> inventory(Set<String> warnings) {
         PackageManager pm = getContext().getPackageManager();
         Map<Integer, AppGroup> groups = new TreeMap<>();
+        // Most apps request the same common permissions; look each label up once per snapshot.
+        Map<String, String> permissionLabels = new HashMap<>();
         for (String packageName : launcherPackages()) {
             try {
                 PackageInfo info = pm.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS);
@@ -190,14 +198,7 @@ public class TrafficMonitorPlugin extends Plugin {
                     if (permission == null) {
                         permission = new JSObject();
                         permission.put("id", id);
-                        String label = id;
-                        try {
-                            PermissionInfo permissionInfo = pm.getPermissionInfo(id, 0);
-                            label = permissionInfo.loadLabel(pm).toString();
-                        } catch (PackageManager.NameNotFoundException ignored) {
-                            // An unavailable custom permission has no system label; retain its real ID.
-                        }
-                        permission.put("label", label);
+                        permission.put("label", permissionLabels.computeIfAbsent(id, key -> permissionLabel(pm, key)));
                         permission.put("granted", granted);
                         group.permissions.put(id, permission);
                     } else if (granted) {
@@ -213,6 +214,16 @@ public class TrafficMonitorPlugin extends Plugin {
         warnings.add("Shared UIDs are counted once. Their traffic cannot be split between packages "
             + "and may include hidden UID siblings. Group permissions are combined across visible packages.");
         return groups;
+    }
+
+    private static String permissionLabel(PackageManager pm, String id) {
+        try {
+            PermissionInfo permissionInfo = pm.getPermissionInfo(id, 0);
+            return permissionInfo.loadLabel(pm).toString();
+        } catch (PackageManager.NameNotFoundException ignored) {
+            // An unavailable custom permission has no system label; retain its real ID.
+            return id;
+        }
     }
 
     @SuppressWarnings("deprecation")
@@ -233,7 +244,11 @@ public class TrafficMonitorPlugin extends Plugin {
                 if (!stats.getNextBucket(bucket)) {
                     throw new IllegalStateException("Incomplete Android statistics");
                 }
-                TrafficData.addBytes(totals, bucket.getUid(), bucket.getRxBytes(), bucket.getTxBytes());
+                // Summary buckets are split by state. Like Android Settings, count everything not
+                // attributed to the foreground (an app on screen or running a foreground service)
+                // as background.
+                boolean background = bucket.getState() != NetworkStats.Bucket.STATE_FOREGROUND;
+                TrafficData.addBytes(totals, bucket.getUid(), bucket.getRxBytes(), bucket.getTxBytes(), background);
             }
             return totals;
         } catch (SecurityException error) {
@@ -312,7 +327,8 @@ public class TrafficMonitorPlugin extends Plugin {
     private static final class AppGroup {
         final int uid;
         final List<String> packages = new ArrayList<>();
-        final List<String> labels = new ArrayList<>();
+        // Shared-UID packages often share one label; show each label once in the group name.
+        final Set<String> labels = new LinkedHashSet<>();
         final Map<String, JSObject> permissions = new TreeMap<>();
         JSArray days = new JSArray();
 
