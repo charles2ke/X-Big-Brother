@@ -1,8 +1,9 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
-import type { Period, Snapshot } from './traffic'
+import type { Period } from './traffic'
 
 interface TrafficPlugin {
-  getSnapshot(options: { days: Period }): Promise<Snapshot>
+  /** Untrusted bridge data; validate it with parseSnapshot before use. */
+  getSnapshot(options: { days: Period }): Promise<unknown>
   openUsageSettings(): Promise<void>
   openAppSettings(options: { packageName: string }): Promise<void>
 }

@@ -56,6 +56,7 @@ public class TrafficMonitorPluginTest {
         if (!call.result.getBoolean("accessGranted")) {
             assertEquals(2, unavailableNames.size());
         }
+        assertTrue(call.result.getBoolean("backgroundAvailable"));
         JSONArray apps = call.result.getJSONArray("apps");
         Set<String> ids = new HashSet<>();
         boolean foundSelf = false;
@@ -67,11 +68,22 @@ public class TrafficMonitorPluginTest {
                 assertEquals(0, app.getJSONArray("days").length());
             }
             JSONArray days = app.getJSONArray("days");
+            Set<String> dates = new HashSet<>();
             for (int d = 0; d < days.length(); d++) {
                 JSONObject day = days.getJSONObject(d);
+                assertTrue("Each day appears once per app", dates.add(day.getString("date")));
+                assertTrue("Days without traffic are omitted", day.getLong("wifi") + day.getLong("mobile") > 0);
                 for (String network : new String[] {"wifi", "mobile"}) {
+                    long total = day.getLong(network);
                     long sent = day.getLong(network + "Sent");
-                    assertTrue("Sent bytes must be part of the total", sent >= 0 && sent <= day.getLong(network));
+                    long background = day.getLong(network + "Background");
+                    long backgroundSent = day.getLong(network + "BackgroundSent");
+                    assertTrue("Sent bytes must be part of the total", sent >= 0 && sent <= total);
+                    assertTrue("Background bytes must be part of the total", background >= 0 && background <= total);
+                    assertTrue("Background sent bytes must be part of both",
+                        backgroundSent >= 0 && backgroundSent <= sent && backgroundSent <= background);
+                    assertTrue("Background received bytes must be part of those received",
+                        background - backgroundSent <= total - sent);
                 }
             }
             JSONArray packages = app.getJSONArray("packages");

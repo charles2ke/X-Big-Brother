@@ -66,6 +66,7 @@ h2 { font-size: 15px; font-weight: 550; margin: 0; }
 .chart-meta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; padding: 22px 24px 0; }
 .chart-meta > strong { font-size: 26px; font-weight: 550; }
 .chart-meta > span { font-size: 10px; color: #9ba7b8; }
+.state-note { flex-basis: 100%; margin: 0; font-size: 10px; line-height: 1.6; color: #9ba7b8; }
 .text-button { margin-left: auto; color: #efbc81; background: transparent; font-size: 11px; }
 .chart { display: flex; gap: 12px; height: 208px; padding: 24px 32px 0; background: repeating-linear-gradient(to top, transparent 0, transparent 44px, #26303d 45px, transparent 46px); background-clip: content-box; }
 .chart-column { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; padding: 0; background: transparent; border-radius: 4px; }
@@ -126,7 +127,12 @@ td, th { padding: 10px; border-bottom: 1px solid #303947; }
 .chip.active { border-color: #c99556; color: #f0c994; }
 .chip.quiet { border-style: dashed; color: #8f9cb0; }
 .app-item:not(:last-child) { border-bottom: 1px solid #252e3a; }
+/* Off-screen rows skip layout and paint until scrolled near. The placeholder is a collapsed traffic row;
+   `auto` then remembers each row's last rendered height. Older WebViews without `auto` keep the fixed size. */
+.app-item { content-visibility: auto; contain-intrinsic-size: 78px; contain-intrinsic-size: auto 78px; }
 .app-row { display: flex; align-items: center; text-align: left; width: 100%; gap: 13px; padding: 16px 24px; background: transparent; }
+/* Rows contain their paint, so the focus ring is drawn inside the row to stay visible. */
+.app-row:focus-visible { outline-offset: -3px; }
 .app-row:hover, .app-item.selected { background: #1a2330; }
 .app-avatar { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; background: #443333; color: #efb5ad; font-size: 17px; font-weight: 600; flex-shrink: 0; }
 .avatar-1 { background: #43364c; color: #d4b2e7; }
@@ -204,6 +210,7 @@ td, th { padding: 10px; border-bottom: 1px solid #303947; }
   .search { width: 100%; }
   .search input { width: 100%; }
   .app-filter { padding: 16px; flex-wrap: wrap; }
+  .app-item { contain-intrinsic-size: 70px; contain-intrinsic-size: auto 70px; }
   .app-row { padding: 15px; gap: 10px; }
   .app-detail { padding: 0 16px 20px; }
   .app-avatar { height: 32px; width: 32px; font-size: 15px; }

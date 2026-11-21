@@ -16,6 +16,8 @@ Include affected version/commit, platform and OS version, impact, and minimal re
 - Android statistics require user-approved Usage access. This app does not request root, Accessibility access, VPN interception, phone identifiers, `READ_PHONE_STATE`, or unrestricted package visibility.
 - Android inventories only visible launcher-app packages. Settings requests must match a currently visible installed package. The native plugin validates the requested 7/30-day range and reads statistics off the UI thread.
 - Statistics, app names, package IDs, and grant flags are sensitive even without packet contents. They stay in process memory and are not logged by the application, persisted, exported, or transmitted. No advertising, tracking SDK, backend, or cloud account is used.
+- The dashboard treats native snapshots as untrusted input. It checks their structure, dates, identifiers, and byte counters (non-negative, with sent and background bytes within totals) and discards the whole snapshot on any mismatch instead of rendering part of it. The foreground/background split comes from the same Usage access statistics and adds no permission or data flow.
+- Unexpected rendering errors are caught by an error boundary that replaces the dashboard with a reload action. Error details are not transmitted or persisted.
 - Android app backup is disabled and cleartext WebView traffic is disallowed. The app does not request Android’s `INTERNET` permission; the dashboard is served from intercepted bundled resources, not a remote server. Capacitor bridge logging is disabled on both platforms.
 - A production Content Security Policy restricts content to the bundled origin and disallows objects and form submission. Inline styles are allowed for chart sizes; inline scripts are not. Development tooling is not a production security boundary.
 - iOS cannot expose other apps’ network history or permission grants. Its native settings bridge opens only this app’s public settings URL. No private API, device-management workaround, or Network Extension is included.
@@ -24,6 +26,7 @@ Include affected version/commit, platform and OS version, impact, and minimal re
 
 - Grant flags do not model all Android App Ops, special access, one-time permissions, or OS restrictions. Permissions can only be changed by the user through the OS, and not all permissions are revocable.
 - Statistics may be delayed, incomplete, misattributed by shared UIDs/VPNs, or unavailable. Hidden apps and other profiles are not fully represented. This is not all-device surveillance or a traffic blocker.
+- Foreground and background labels are Android’s classification of app state, not of intent. Foreground services count as foreground, and background traffic does not by itself indicate misuse.
 - This app does not decrypt TLS, inspect payloads, identify contacted domains, or determine whether traffic is malicious.
 - A rooted/jailbroken or otherwise compromised device can falsify statistics or read process memory. Device screenshots and OS task-switcher previews can expose what is displayed; the app does not promise to prevent OS-level capture.
 - Demo data is explicitly labeled, fictional, and separate from real measurements. Tests mocking native responses do not establish correctness on every device/OEM.
