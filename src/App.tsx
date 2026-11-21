@@ -155,7 +155,6 @@ function App() {
       if (current === request.current) setLoaded({ snapshot: data, demo, period })
     } catch (failure) {
       if (current === request.current) {
-        if (failure instanceof SnapshotError) console.error(failure)
         setLoaded(null)
         setError({ ...readError(failure), retry: () => void refresh() })
       }
