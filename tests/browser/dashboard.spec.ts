@@ -254,8 +254,10 @@ const snapshotReads = (page: Page) =>
   page.evaluate(() => (window as unknown as NativeWindow).nativeCalls.filter(call => call.method === 'getSnapshot').length)
 
 // Full-page captures paint beyond the viewport, where Chromium skips content-visibility rows; render them as scrolling would.
+// They also draw the fixed sidebar wherever the last scroll left it, so capture from the top.
 async function capture(page: Page, testInfo: TestInfo, name: string) {
   const path = testInfo.outputPath(`${name}.png`)
+  await page.evaluate(() => scrollTo(0, 0))
   await page.screenshot({ path, fullPage: true, style: '.app-item { content-visibility: visible }' })
   await testInfo.attach(name, { path, contentType: 'image/png' })
 }
